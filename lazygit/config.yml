@@ -1,0 +1,19 @@
+git:
+  diffRenderers:
+    - colorArg: always
+      command: delta --dark --paging=never --line-numbers
+  # no network on open; noticeably faster startup
+  autoFetch: false
+  log:
+    # the commit graph is expensive on a long history; "+" (maximise) turns it on
+    showGraph: when-maximised
+
+refresher:
+  refreshInterval: 10
+  fetchInterval: 3600
+
+os:
+  # hand the file to the running nvim over its socket instead of nesting an editor
+  edit: 'nvim --server /tmp/nvim.sock --remote-tab {{filename}}'
+  editAtLine: 'nvim --server /tmp/nvim.sock --remote-tab +{{line}} {{filename}}'
+  editAtLineAndWait: 'nvim --server /tmp/nvim.sock --remote-tab-wait +{{line}} {{filename}}'

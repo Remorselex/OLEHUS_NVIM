@@ -1,0 +1,37 @@
+# terse prompt: path plus git, no language modules
+add_newline = true
+format = """
+$directory
+${custom.worktree}$git_branch$git_status
+$nodejs$bun$python$rust$golang$java$kotlin$c$php$ruby$docker_context$package$character"""
+
+[directory]
+truncation_length = 2
+truncate_to_repo = true
+truncation_symbol = "…/"
+style = "bold cyan"
+
+# in a linked worktree --git-dir points into .git/worktrees/<name> while
+# --git-common-dir points at the shared .git; in the main tree they match
+[custom.worktree]
+description = "worktree name, shown only outside the main tree"
+# starship feeds the command to the shell on stdin, so "-c" here breaks it silently
+shell = ["sh"]
+# a linked worktree has a gitdir file in .git/worktrees/<name>/; the main tree has none
+when = 'test -f "$(git rev-parse --git-dir)/gitdir"'
+command = 'basename "$(git rev-parse --show-toplevel)"'
+format = "[wt:$output]($style) "
+style = "bold red"
+
+[git_branch]
+format = "[$symbol$branch]($style) "
+symbol = " "
+style = "bold purple"
+
+[git_status]
+format = '([$all_status$ahead_behind]($style) )'
+style = "bold yellow"
+
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"

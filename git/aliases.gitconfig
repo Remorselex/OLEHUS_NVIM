@@ -1,0 +1,11 @@
+# Pulled in through include.path, so user.name and user.email are absent here:
+# everyone sets their own.
+[difftool "difftastic"]
+	cmd = difft \"$LOCAL\" \"$REMOTE\"
+[difftool]
+	prompt = false
+[alias]
+	# structural diff: compares parse trees rather than lines
+	dft = difftool -t difftastic
+	dlog = !GIT_EXTERNAL_DIFF=difft git log --ext-diff
+	dshow = !GIT_EXTERNAL_DIFF=difft git show --ext-diff

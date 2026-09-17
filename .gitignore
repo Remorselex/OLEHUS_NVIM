@@ -1,0 +1,4 @@
+*.bak.*
+.DS_Store
+# Per-machine and secret values live in ~/.zshrc.local; template: zsh/zshrc.local.example
+zsh/zshrc.local

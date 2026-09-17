@@ -1,0 +1,6 @@
+# copy to ~/.zshrc.local and fill in
+export PUI_UIKIT_TOKEN=<your value here>
+export CLICKUP_TOKEN=<your value here>
+export CLICKUP_VIEW='https://app.clickup.com/37460873/v/l/13q6w9-197795'
+export GITLAB_TOKEN=<your value here>
+export JAVA_HOME=$(/usr/libexec/java_home -v 25)
