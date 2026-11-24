@@ -7,6 +7,20 @@
 -- here also fires for the startup theme. In autocmds.lua it was too late: that file
 -- loads on VeryLazy, by which point the theme is already in place.
 
+-- Pickers spawn "rg" by name, so a shim earlier on PATH reroutes them to the
+-- trigram-indexed tgrep. Scoped to vim.env so the interactive shell keeps the
+-- real ripgrep. See util/tgrep.lua and bin/nvim-search/rg.
+vim.env.PATH = vim.fn.expand("~/dotfiles/bin/nvim-search") .. ":" .. vim.env.PATH
+
+-- Root is the repository, not the LSP workspace. vtsls is rooted at the nearest package
+-- (plugins/typescript-root.lua), and LazyVim asks LSP first and prefers the deepest root,
+-- so opening one file in monoNew narrowed every search to that package.
+vim.g.root_spec = { { ".git", "lua" }, "lsp", "cwd" }
+
+-- A closed fold shows its first line highlighted plus how much is hidden; doc comments
+-- show their first sentence. See util/foldtext.lua.
+vim.opt.foldtext = "v:lua.require'util.foldtext'.render()"
+
 vim.opt.cursorlineopt = "both"
 
 -- Transparent editor background. Toggled live with `Space u B`.
@@ -14,6 +28,9 @@ vim.g.transparent_background = true
 
 -- Tell syntax groups apart by font weight, not by hue alone. `Space u S`.
 vim.g.syntax_contrast = true
+
+-- A block's brackets and indent guide share a colour per indent level. `Space u o`.
+vim.g.rainbow_scopes = true
 
 local TRANSPARENT_GROUPS = {
   "Normal", "NormalNC", "NormalFloat", "FloatBorder", "SignColumn",
@@ -57,6 +74,7 @@ end
 local function apply_highlight_tweaks()
   tone_down_cursorline()
   require("util.syntax-contrast").apply()
+  require("util.rainbow-scopes").apply()
   pcall(vim.api.nvim_set_hl, 0, "CursorLineNr", { bold = true })
   if not vim.g.transparent_background then
     return
@@ -73,5 +91,5 @@ vim.schedule(apply_highlight_tweaks)
 vim.api.nvim_create_user_command("TransparencyToggle", function()
   vim.g.transparent_background = not vim.g.transparent_background
   vim.cmd.colorscheme(vim.g.colors_name)
-  vim.notify("Прозрачный фон: " .. (vim.g.transparent_background and "вкл" or "выкл"))
-end, { desc = "Прозрачный фон редактора вкл/выкл" })
+  vim.notify("Transparent background: " .. (vim.g.transparent_background and "on" or "off"))
+end, { desc = "Editor transparent background on/off" })

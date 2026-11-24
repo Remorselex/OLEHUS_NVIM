@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# ripgrep-compatible shim that routes searches to tgrep when that is the faster
+# engine, and to the real ripgrep when it is not.
+#
+# tgrep answers from a prebuilt trigram index: it derives the 3-byte sequences a
+# match must contain, intersects their posting lists, and only then runs a regex
+# over the surviving files. On a 430k-file monorepo that turns 8.3 s into 0.1 s.
+#
+# The catch is that a pattern with no literal run of three characters yields no
+# trigrams to intersect, so tgrep degrades to a full scan — and its scanner is
+# about 5x slower than ripgrep's SIMD one (measured: 51 s vs 10 s for [A-Z]{3}).
+# Such patterns therefore go to ripgrep.
+#
+# One further gap: tgrep honours -0/--null for -l but ignores it in match
+# output, printing path:line:col:text where ripgrep prints path NUL line:col:text.
+# Consumers that split on NUL — snacks.picker among them — reject that, so the
+# separator is restored below.
+set -uo pipefail
+
+SHIM_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REAL_RIPGREP=$(PATH=$(echo "$PATH" | tr ':' '\n' | grep -vx "$SHIM_DIR" | paste -sd: -) command -v rg)
+
+run_real_ripgrep() {
+  exec "$REAL_RIPGREP" "$@"
+}
+
+[ -n "$REAL_RIPGREP" ] || { echo "rg-shim: настоящий ripgrep не найден" >&2; exit 127; }
+command -v tgrep >/dev/null || run_real_ripgrep "$@"
+
+index_root() {
+  local dir=$PWD
+  while [ "$dir" != "/" ]; do
+    [ -d "$dir/.tgrep" ] && { echo "$dir"; return 0; }
+    dir=$(dirname "$dir")
+  done
+  return 1
+}
+INDEX_ROOT=$(index_root) || run_real_ripgrep "$@"
+
+# The pattern is whatever follows "--". Callers that omit it are not worth
+# guessing about, so they get ripgrep.
+pattern=""
+pattern_found=0
+fixed_strings=0
+previous=""
+for argument in "$@"; do
+  if [ "$previous" = "--" ]; then
+    pattern=$argument
+    pattern_found=1
+    break
+  fi
+  [ "$argument" = "-F" ] || [ "$argument" = "--fixed-strings" ] && fixed_strings=1
+  previous=$argument
+done
+[ "$pattern_found" -eq 1 ] || run_real_ripgrep "$@"
+
+# A trigram index can only filter when every alternative in the pattern carries
+# a literal run of at least three bytes.
+TGREP_PATTERN=$pattern TGREP_FIXED=$fixed_strings perl -e '
+  my $pattern = $ENV{TGREP_PATTERN};
+
+  if ($ENV{TGREP_FIXED}) { exit(length($pattern) >= 3 ? 0 : 1) }
+
+  # Escapes: \w \d \s \b and friends are classes, \. \- \/ are literal bytes.
+  for my $branch (split /\|/, $pattern) {
+    my $longest = 0;
+    my $run = 0;
+    my $in_class = 0;
+    my @characters = split //, $branch;
+    for (my $i = 0; $i <= $#characters; $i++) {
+      my $character = $characters[$i];
+      my $literal = 0;
+
+      if ($character eq "\\") {
+        my $next = $characters[++$i] // "";
+        $literal = ($next =~ /[^\w]/) ? 1 : 0;
+        $character = $next;
+      } elsif ($character eq "[") {
+        $in_class = 1;
+      } elsif ($character eq "]") {
+        $in_class = 0;
+      } elsif ($character =~ /[.*+?(){}^\$]/) {
+        $literal = 0;
+      } else {
+        $literal = 1;
+      }
+
+      # A character class matches any one of several bytes, so it pins nothing.
+      $literal = 0 if $in_class;
+
+      # A quantifier makes the character before it optional, so it cannot be required.
+      my $quantifier = ($i < $#characters && $characters[$i + 1] =~ /[*?{]/) ? 1 : 0;
+
+      if ($literal && !$quantifier) {
+        $run++;
+        $longest = $run if $run > $longest;
+      } else {
+        $run = 0;
+      }
+    }
+    exit 1 if $longest < 3;
+  }
+  exit 0;
+' || run_real_ripgrep "$@"
+
+# ripgrep's --no-hidden is already tgrep's default, yet tgrep rejects the flag and exits 2.
+# snacks.picker passes it on every grep, so without this every query fell through to the
+# 10-second ripgrep scan. Only options are filtered: the pattern after "--" stays as is.
+tgrep_arguments=()
+# tgrep looks for the index only in the current directory; from a package deeper in the
+# tree it would warn and scan every file, slower than ripgrep itself.
+[ "$PWD" = "$INDEX_ROOT" ] || tgrep_arguments+=(--index-path "$INDEX_ROOT/.tgrep")
+options_ended=0
+for argument in "$@"; do
+  if [ "$options_ended" -eq 0 ] && [ "$argument" = "--no-hidden" ]; then
+    continue
+  fi
+  [ "$argument" = "--" ] && options_ended=1
+  tgrep_arguments+=("$argument")
+done
+
+tgrep "${tgrep_arguments[@]}" | perl -pe 's/^(.*?):(\d+):(\d+):/$1\0$2:$3:/'
+status=${PIPESTATUS[0]}
+
+# 0 = matches, 1 = no matches; anything else means tgrep could not run the query
+[ "$status" -gt 1 ] && run_real_ripgrep "$@"
+exit "$status"

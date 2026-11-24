@@ -7,7 +7,7 @@ local PATCH_DIR = vim.fn.expand("~/patches")
 local function repository_root()
   local git_entry = vim.fs.find(".git", { upward = true, path = vim.uv.cwd() })[1]
   if git_entry == nil then
-    vim.notify("не git-репозиторий", vim.log.levels.ERROR)
+    vim.notify("not a git repository", vim.log.levels.ERROR)
     return nil
   end
   return vim.fs.dirname(git_entry)
@@ -34,7 +34,7 @@ local function save(root, git_args, suffix)
     return
   end
   if diff == "" then
-    vim.notify("нечего класть в патч", vim.log.levels.WARN)
+    vim.notify("nothing to put in a patch", vim.log.levels.WARN)
     return
   end
   local path = patch_path(root, suffix)
@@ -42,7 +42,7 @@ local function save(root, git_args, suffix)
   file:write(diff)
   file:close()
   vim.fn.setreg("+", path)
-  vim.notify(("патч: %s\n(%d строк, путь в буфере обмена)"):format(path, select(2, diff:gsub("\n", "\n"))))
+  vim.notify(("patch: %s\n(%d lines, path copied to the clipboard)"):format(path, select(2, diff:gsub("\n", "\n"))))
 end
 
 function M.working_tree()
@@ -66,7 +66,7 @@ function M.current_file()
   end
   local file = vim.api.nvim_buf_get_name(0)
   if file == "" then
-    vim.notify("буфер без файла", vim.log.levels.WARN)
+    vim.notify("buffer has no file", vim.log.levels.WARN)
     return
   end
   save(root, { "diff", "HEAD", "--", file }, vim.fn.fnamemodify(file, ":t:r"))
@@ -83,7 +83,7 @@ function M.from_commit()
     return
   end
   local commits = vim.split(vim.trim(log), "\n")
-  vim.ui.select(commits, { prompt = "format-patch для коммита:" }, function(choice)
+  vim.ui.select(commits, { prompt = "format-patch for commit:" }, function(choice)
     if choice == nil then
       return
     end
@@ -92,7 +92,7 @@ function M.from_commit()
     local written = run_git(root, { "format-patch", "-1", sha, "-o", PATCH_DIR })
     if written ~= nil then
       vim.fn.setreg("+", vim.trim(written))
-      vim.notify("патч: " .. vim.trim(written))
+      vim.notify("patch: " .. vim.trim(written))
     end
   end)
 end
@@ -104,12 +104,12 @@ function M.apply()
   end
   local files = vim.fn.glob(PATCH_DIR .. "/*.patch", false, true)
   if #files == 0 then
-    vim.notify("в " .. PATCH_DIR .. " нет патчей", vim.log.levels.WARN)
+    vim.notify("no patches in " .. PATCH_DIR, vim.log.levels.WARN)
     return
   end
   table.sort(files, function(a, b) return a > b end)
   vim.ui.select(files, {
-    prompt = "применить патч:",
+    prompt = "apply patch:",
     format_item = function(item) return vim.fs.basename(item) end,
   }, function(choice)
     if choice == nil then
@@ -121,7 +121,7 @@ function M.apply()
       return
     end
     if run_git(root, { "apply", choice }) ~= nil then
-      vim.notify("применён: " .. vim.fs.basename(choice))
+      vim.notify("applied: " .. vim.fs.basename(choice))
       vim.cmd.checktime()
     end
   end)

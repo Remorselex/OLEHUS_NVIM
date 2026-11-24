@@ -64,7 +64,7 @@ end
 vim.api.nvim_create_user_command("SyntaxContrastToggle", function()
   vim.g.syntax_contrast = not vim.g.syntax_contrast
   vim.cmd.colorscheme(vim.g.colors_name)
-  vim.notify("Различение начертанием: " .. (vim.g.syntax_contrast and "вкл" or "выкл"))
-end, { desc = "Жирный/курсив для групп синтаксиса вкл/выкл" })
+  vim.notify("Syntax by font style: " .. (vim.g.syntax_contrast and "on" or "off"))
+end, { desc = "Bold/italic for syntax groups on/off" })
 
 return M

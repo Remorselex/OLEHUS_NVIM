@@ -9,7 +9,12 @@ git:
     showGraph: when-maximised
 
 refresher:
-  refreshInterval: 10
+  # lazygit polls with `git status --untracked-files=all`, which has to walk the
+  # whole working tree. On a 436k-file repository that is ~10 s per poll, so at
+  # the default 10 s interval the command is essentially always running and eats
+  # half a core. Nothing in lazygit turns -uall off, so the lever is frequency.
+  # The live edit->review loop lives in Neogit anyway; here `R` refreshes on demand.
+  refreshInterval: 120
   fetchInterval: 3600
 
 os:

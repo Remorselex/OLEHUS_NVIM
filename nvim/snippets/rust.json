@@ -1,0 +1,63 @@
+{
+  "constructor": {
+    "prefix": "new",
+    "description": "pub fn new(...) -> Self { Self { ... } }",
+    "body": [
+      "pub fn new($1) -> Self {",
+      "\tSelf { $0 }",
+      "}"
+    ]
+  },
+  "method": {
+    "prefix": "method",
+    "description": "pub fn name(&self, ...) — the return type goes into the third stop: \" -> Type\"",
+    "body": [
+      "pub fn ${1:name}(&self$2)$3 {",
+      "\t$0",
+      "}"
+    ]
+  },
+  "mutating method": {
+    "prefix": "methodmut",
+    "description": "pub fn name(&mut self, ...)",
+    "body": [
+      "pub fn ${1:name}(&mut self$2)$3 {",
+      "\t$0",
+      "}"
+    ]
+  },
+  "trait impl": {
+    "prefix": "implfor",
+    "description": "impl Trait for Type { } — inside, type fn to list the trait's methods",
+    "body": [
+      "impl ${1:Trait} for ${2:Type} {",
+      "\t$0",
+      "}"
+    ]
+  },
+  "test module": {
+    "prefix": "tests",
+    "description": "#[cfg(test)] mod tests with use super::*",
+    "body": [
+      "#[cfg(test)]",
+      "mod tests {",
+      "\tuse super::*;",
+      "",
+      "\t#[test]",
+      "\tfn ${1:name}() {",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ]
+  },
+  "main returning Result": {
+    "prefix": "mainr",
+    "description": "fn main() -> Result<(), Box<dyn Error>> — lets ? work in main",
+    "body": [
+      "fn main() -> Result<(), Box<dyn std::error::Error>> {",
+      "\t$0",
+      "\tOk(())",
+      "}"
+    ]
+  }
+}

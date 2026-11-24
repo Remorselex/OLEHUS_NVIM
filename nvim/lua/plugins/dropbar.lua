@@ -8,7 +8,7 @@ return {
       { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
     },
     keys = {
-      { "<leader>;", function() require("dropbar.api").pick() end, desc = "Navigation bar (крошки)" },
+      { "<leader>;", function() require("dropbar.api").pick() end, desc = "Navigation bar (breadcrumbs)" },
     },
     opts = {},
   },

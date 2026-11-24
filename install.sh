@@ -46,6 +46,7 @@ link "$DOTFILES_DIR/ghostty/config"       "$HOME/.config/ghostty/config"
 link "$DOTFILES_DIR/starship/starship.toml" "$HOME/.config/starship.toml"
 link "$DOTFILES_DIR/lazygit/config.yml"   "$LAZYGIT_DIR/config.yml"
 link "$DOTFILES_DIR/zsh/zshrc"            "$HOME/.zshrc"
+link "$DOTFILES_DIR/git/ignore"           "$HOME/.config/git/ignore"
 
 if [ ! -f "$HOME/.zshrc.local" ]; then
   cp "$DOTFILES_DIR/zsh/zshrc.local.example" "$HOME/.zshrc.local"

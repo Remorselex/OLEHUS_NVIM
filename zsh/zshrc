@@ -125,12 +125,20 @@ alias web='w3m'         # text-mode browser: web duckduckgo.com
 
 # === NVIM-SOCKET: nvim listens on a socket so lazygit in another pane can hand it files ===
 v() {
-  local sock=/tmp/nvim.sock
-  if [ -e "$sock" ] && nvim --server "$sock" --remote-expr '1' >/dev/null 2>&1; then
-    nvim "$@"            # a live nvim already owns the socket, so start this one plain
-  else
+  local sock=/tmp/nvim.sock owner
+  if ! { [ -e "$sock" ] && owner=$(nvim --server "$sock" --remote-expr 'getpid() . " " . getcwd()' 2>/dev/null); }; then
     rm -f "$sock"; nvim --listen "$sock" "$@"
+    return
   fi
+
+  # A live nvim already owns the socket, so this one starts plain, and lazygit keeps handing
+  # files to the other one. Say which, or it looks as if lazygit stopped opening files at all.
+  # getpid() is the embedded server; its parent is the UI that sits in a terminal tab.
+  local ui_pid=$(ps -o ppid= -p "${owner%% *}" | tr -d ' ')
+  local owner_dir=${owner#* }
+  local warning="Сокет $sock держит другой nvim: PID $ui_pid, терминал $(ps -o tty= -p "$ui_pid" | tr -d ' '), запущен $(ps -o lstart= -p "$ui_pid" | sed "s/ *$//"), каталог ${owner_dir/#$HOME/~}. Файлы из lazygit уходят туда. Закрой его и здесь выполни :call serverstart('$sock')"
+  print -u2 "v: $warning"
+  V_SOCKET_WARNING=$warning nvim -c 'lua vim.defer_fn(function() vim.notify(os.getenv("V_SOCKET_WARNING"), vim.log.levels.WARN) end, 1000)' "$@"
 }
 
 # === WORKTREE-BLOCK: in the worktree model you don't switch branches, you move between dirs ===
@@ -176,6 +184,54 @@ wt-rm() {
   git worktree remove "${target%% *}" && git worktree list
 }
 
+# === COMMANDS-BLOCK: every command these zsh files define, in one fuzzy list ===
+# commands          pick a command with fzf (the preview shows its definition) and put it on the prompt
+# A command's description is its usage comment ("# name ...") when the file has one, else the comment
+# right above it, else the comment or value of the alias. Names starting with _ are helpers, not listed.
+__commands_list() {
+  awk '
+    FNR == 1 { above = "" }
+    /^#[ \t]+[a-z][a-z0-9_-]*([ \t]|$)/ {
+      split(substr($0, 2), words, /[ \t]+/)
+      name = words[2]
+      if (!(name in usage)) { usage[name] = $0; sub(/^#[ \t]+[^ \t]+[ \t]*/, "", usage[name]) }
+    }
+    /^#/ {
+      if (!in_comment) { above = $0; sub(/^#+[ \t]*(=+[ \t]*)?/, "", above); sub(/[ \t]*=+[ \t]*$/, "", above) }
+      in_comment = 1
+      next
+    }
+    { in_comment = 0 }
+    /^[a-zA-Z][a-zA-Z0-9_-]*\(\)/ {
+      name = $0; sub(/\(\).*/, "", name)
+      description = (name in usage && usage[name] != "") ? usage[name] : above
+      printf "%-18s %s\n", name, description
+    }
+    /^alias [a-zA-Z]/ {
+      name = $2; sub(/=.*/, "", name)
+      description = $0
+      if (description ~ /#/) sub(/^[^#]*#[ \t]*/, "", description); else sub(/^alias [^=]+=/, "", description)
+      printf "%-18s %s\n", name, description
+    }
+    !/^[ \t]*$/ { above = "" }
+  ' "$HOME/dotfiles/zsh/zshrc" "$HOME/.zshrc.local" 2>/dev/null | sort -u -k1,1
+}
+
+commands() {
+  local definitions chosen name
+  definitions=$(mktemp -d) || return 1
+  # Definitions as the shell has them now, written once, so the preview needs no new zsh per line.
+  __commands_list | while read -r name _; do
+    { alias -L "$name" || whence -f "$name"; } > "$definitions/$name" 2>/dev/null
+  done
+  chosen=$(__commands_list | fzf --height 60% --reverse --prompt 'команда> ' \
+    --preview "cat '$definitions'/{1}" --preview-window 'right,55%,wrap')
+  rm -rf "$definitions"
+  [ -n "$chosen" ] && print -z -- "${chosen%% *} "
+}
+
 # === LOCAL-BLOCK: per-machine and secret values, kept out of the repository ===
 # tokens, work URLs, JAVA_HOME. Never committed; template: zsh/zshrc.local.example
 [ -f "$HOME/.zshrc.local" ] && source "$HOME/.zshrc.local"
+
+export PATH="/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH"

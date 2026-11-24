@@ -18,8 +18,8 @@ return {
       popup = { kind = "split" },
     },
     keys = {
-      { "<leader>gn", "<cmd>Neogit<cr>", desc = "Neogit (статус)" },
-      { "<leader>gN", "<cmd>Neogit log<cr>", desc = "Neogit: история коммитов" },
+      { "<leader>gn", "<cmd>Neogit<cr>", desc = "Neogit (status)" },
+      { "<leader>gN", "<cmd>Neogit log<cr>", desc = "Neogit: commit history" },
     },
   },
 }
